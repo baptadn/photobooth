@@ -26,19 +26,19 @@ while True:
                 now = str(int(time.time()*1000))
 
 
-                os.system('fswebcam -r 500x500 --no-banner --rotate 180 images/image1-'+now+'.jpg  ')
+                os.system('fswebcam -r 500x500 --no-banner --rotate 180 images/archives/image1-'+now+'.jpg  ')
           	time.sleep(0.5)                
-		os.system('fswebcam -r 500x500 --no-banner --rotate 180 images/image2-'+now+'.jpg   ')
+		os.system('fswebcam -r 500x500 --no-banner --rotate 180 images/archives/image2-'+now+'.jpg   ')
 	        time.sleep(0.5)
-                os.system('fswebcam -r 500x500 --no-banner --rotate 180 images/image3-'+now+'.jpg   ')
+                os.system('fswebcam -r 500x500 --no-banner --rotate 180 images/archives/image3-'+now+'.jpg   ')
         	time.sleep(0.5)
-                os.system('fswebcam -r 500x500 --no-banner --rotate 180 images/image4-'+now+'.jpg   ')
+                os.system('fswebcam -r 500x500 --no-banner --rotate 180 images/archives/image4-'+now+'.jpg   ')
 		
-		logo = Image.open("images/logo.PNG")
-		img1 = Image.open('images/image1-' + now + '.jpg')
-                img2 = Image.open('images/image2-' + now + '.jpg')
-                img3 = Image.open('images/image3-' + now + '.jpg')
-                img4 = Image.open('images/image4-' + now + '.jpg')
+		logo = Image.open("images/logo.jpg")
+		img1 = Image.open('images/archives/image1-' + now + '.jpg')
+                img2 = Image.open('images/archives/image2-' + now + '.jpg')
+                img3 = Image.open('images/archives/image3-' + now + '.jpg')
+                img4 = Image.open('images/archives/image4-' + now + '.jpg')
 		
                 printer.print_image_from_file(logo)
                 printer.linefeed(2)
