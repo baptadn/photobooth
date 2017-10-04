@@ -1,6 +1,5 @@
 from PIL import Image, ImageStat, Image, ImageDraw, ImageFont, ImageEnhance
 import textwrap, os, functools
-font = ImageFont.truetype("fonts/Montserrat-Bold.ttf", 40)
 from epsonprinter import EpsonPrinter
 
 def init_printer(vendorId, machineId, printId):
