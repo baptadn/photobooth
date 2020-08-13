@@ -41,11 +41,13 @@ RIGHT_JUSTIFIED = [
     97,    # a
     2]
 
+
 def linefeed(lines=1):
     return [
         ESC,  # ESC
         100,  # d
         lines]
+
 
 def underline_on(weight):
     return [
@@ -53,11 +55,13 @@ def underline_on(weight):
         45,    # -
         weight]
 
+
 def set_line_spacing(dots):
     return [
         ESC,
         51,  # 3
         dots]
+
 
 def set_text_size(width_magnification, height_magnification):
     if width_magnification < 0 or width_magnification > 7:
@@ -71,6 +75,7 @@ def set_text_size(width_magnification, height_magnification):
         n]
     return byte_array
 
+
 def set_print_speed(speed):
     byte_array = [
         GS,  # GS
@@ -82,7 +87,14 @@ def set_print_speed(speed):
         speed]
     return byte_array
 
+
 class PrintableImage:
+    """
+    Container for image data ready to be sent to the printer
+    The transformation from bitmap data to PrintableImage data is explained at the link below:
+    http://nicholas.piasecki.name/blog/2009/12/sending-a-bit-image-to-an-epson-tm-t88iii-receipt-printer-using-c-and-escpos/
+    """
+
     def __init__(self, data, height):
         self.data = data
         self.height = height
@@ -97,6 +109,10 @@ class PrintableImage:
         (w, h) = image.size
 
         # Thermal paper is 512 pixels wide
+        if w > 512:
+            ratio = 512. / w
+            h = int(h * ratio)
+            image = image.resize((512, h), Image.ANTIALIAS)
         if image.mode != '1':
             image = image.convert('1')
 
@@ -108,7 +124,7 @@ class PrintableImage:
         pixels = np.vstack((pixels, extra_pixels))
         h += extra_rows
         nb_stripes = h / 24
-        pixels = pixels.reshape(nb_stripes, 24, w).swapaxes(1, 2).reshape(-1, 8)
+        pixels = pixels.reshape(int(nb_stripes), 24, w).swapaxes(1, 2).reshape(-1, 8)
 
         nh = int(w / 256)
         nl = w % 256
@@ -118,6 +134,7 @@ class PrintableImage:
         stripes = np.split(pixels, nb_stripes)
 
         for stripe in stripes:
+
             data.extend([
                 ESC,
                 42,  # *
@@ -151,7 +168,7 @@ class EpsonPrinter:
 
     printer = None
 
-    def __init__(self, id_vendor, id_product, printerId = 1, out_ep=0x01):
+    def __init__(self, id_vendor, id_product, out_ep=0x01):
         """
         @param id_vendor  : Vendor ID
         @param id_product : Product ID
@@ -162,16 +179,8 @@ class EpsonPrinter:
 
         self.out_ep = out_ep
 
-        printers = usb.core.find(find_all=True)
         # Search device on USB tree and set is as printer
         self.printer = usb.core.find(idVendor=id_vendor, idProduct=id_product)
-        i = 0
-        #for printer in printers:
-        #    i = i + 1
-        #    if printer.idProduct == 3605:
-        #        if printerId == i:
-        #            self.printer = printer
-
         if self.printer is None:
             raise ValueError("Printer not found. Make sure the cable is plugged in.")
 
@@ -198,11 +207,12 @@ class EpsonPrinter:
         return wrapper
 
     def write_bytes(self, byte_array):
-        msg = ''.join([chr(b) for b in byte_array])
+        msg = bytearray(byte_array)
+        #msg = ''.join([chr(b) for b in byte_array])
         self.write(msg)
 
     def write(self, msg):
-        self.printer.write(self.out_ep, msg, timeout=100000)
+        self.printer.write(self.out_ep, msg, timeout=20000)
 
     def print_text(self, msg):
         self.write(msg)
@@ -246,8 +256,19 @@ class EpsonPrinter:
 
         return byte_array
 
-    def print_image_from_file(self, image_file):
-        printable_image = PrintableImage.from_image(image_file)
+    def print_images(self, *printable_images):
+        """
+        This method allows printing several images in one shot. This is useful if the client code does not want the
+        printer to make pause during printing
+        """
+        printable_image = reduce(lambda x, y: x.append(y), list(printable_images))
+        self.print_image(printable_image)
+
+    def print_image_from_file(self, image_file, rotate=False):
+        image = Image.open(image_file)
+        if rotate:
+            image = image.rotate(180)
+        printable_image = PrintableImage.from_image(image)
         self.print_image(printable_image)
 
     def print_image_from_buffer(self, data, rotate=False):
@@ -308,3 +329,4 @@ class EpsonPrinter:
     @write_this
     def set_print_speed(self, speed):
         return set_print_speed(speed)
+
