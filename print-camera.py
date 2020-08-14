@@ -1,17 +1,21 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import time, sys, os, subprocess, logging, datetime
+import numpy as np
 from epsonprinter import EpsonPrinter
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageOps
 from utils import is_grey_scale, brightness, init_printer
 import functools
 from escpos.printer import Usb
 import gphoto2 as gp
 from stat import S_ISREG, ST_CTIME, ST_MODE
+import base64
+from io import BytesIO
+import evdev
 
-
+has_print = False
+device = evdev.InputDevice('/dev/input/event0')
 BASE_WIDTH = 512
-
 p = Usb(0x04b8, 0x0e15)
 printer = init_printer(0x04b8, 0x0e15, 1)
 
@@ -34,37 +38,43 @@ def take_photo(dateDirectory, index):
   gp.check_result(gp.gp_file_save(camera_file, target))
 
 while True:
-  raw_input("Hit keys for starting the photobooth")
+    event = device.read_one()
+    if event and has_print == False and event.type == evdev.ecodes.EV_KEY and event.value == 0:
+        dateDirectory = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        printer.print_image_from_file("/home/pi/photobooth/toto.png", rotate=True)
+        printer.linefeed(1)
 
-  dateDirectory = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-  imgTitle = Image.open('/home/pi/photobooth/title.png')
-  printer.print_image_from_file(imgTitle)
-  printer.linefeed(1)
+        take_photo(dateDirectory, '1')
+        take_photo(dateDirectory, '2')
+        take_photo(dateDirectory, '3')
+        take_photo(dateDirectory, '4')
 
-  take_photo(dateDirectory, '1')
-  take_photo(dateDirectory, '2')
-  take_photo(dateDirectory, '3')
-  take_photo(dateDirectory, '4')
+        dirpath = "./files/" + dateDirectory
 
+        entries = (os.path.join(dirpath, fn) for fn in os.listdir(dirpath))
+        entries = ((os.stat(path), path) for path in entries)
+        entries = ((stat[ST_CTIME], path)
+        for stat, path in entries if S_ISREG(stat[ST_MODE]))
+        i = 0
 
-  dirpath = "./files/" + dateDirectory
+        for cdate, path in sorted(entries):
+           picturePath = dirpath + '/' + os.path.basename(path)
+           img = Image.open(picturePath)
+           wpercent = (BASE_WIDTH / float(img.size[0]))
+           hsize = int((float(img.size[1]) * float(wpercent)))
+           img = img.resize((BASE_WIDTH, hsize), Image.ANTIALIAS)
+           enhencer = ImageEnhance.Contrast(img) 
+           img = enhencer.enhance(3.0)
+           buffered = BytesIO()
+           img.save(buffered, format="JPEG")
+           img_str = base64.b64encode(buffered.getvalue())
+           printer.print_image_from_buffer(img_str, rotate=True)
+           printer.linefeed(1)
 
-  entries = (os.path.join(dirpath, fn) for fn in os.listdir(dirpath))
-  entries = ((os.stat(path), path) for path in entries)
-  entries = ((stat[ST_CTIME], path)
-  for stat, path in entries if S_ISREG(stat[ST_MODE]))
-  i = 0
-
-  for cdate, path in sorted(entries):
-    picturePath = dirpath + '/' + os.path.basename(path)
-    img = Image.open(picturePath)
-    wpercent = (BASE_WIDTH / float(img.size[0]))
-    hsize = int((float(img.size[1]) * float(wpercent)))
-    img = img.resize((BASE_WIDTH, hsize), PIL.Image.ANTIALIAS)
-    enhencer = ImageEnhance.Contrast(img)
-    img = enhencer.enhance(3.0)
-    printer.print_image_from_file(img)
-    printer.linefeed(1)
-
-  printer.linefeed(4)
-  printer.cut()
+        printer.linefeed(4)
+        printer.cut()
+        has_print = True
+    elif event and event.type == evdev.ecodes.EV_KEY and event.value == 0:
+        pass
+    elif not event:
+        has_print = False
